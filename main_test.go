@@ -49,5 +49,31 @@ func TestBackgroundFill(t *testing.T) {
 	if lastPixel != uint32(BACKGROUND) {
 		t.Error("LastPixel !=", BACKGROUND)
 	}
+}
 
+func TestNewPaddel(t *testing.T) {
+	paddel, err := NewPaddel(0, 0)
+	if err != nil {
+		t.Error("error creating paddel", err)
+	}
+	if paddel == nil {
+		t.Error("paddel is nil for some reason")
+	}
+}
+
+func TestPaddleGetCoord(t *testing.T) {
+	paddel, err := NewPaddel(0, 0)
+	if err != nil {
+		t.Error("error creating paddel", err)
+	}
+	if paddel == nil {
+		t.Error("paddel is nil for some reason")
+	}
+	coord, err := paddel.GetCoord()
+	if err != nil {
+		t.Error("Paddel.GetCoord returned error", err)
+	}
+	if coord.X != 0 || coord.Y != 0 {
+		t.Error("Coordinates wrong!", coord)
+	}
 }
