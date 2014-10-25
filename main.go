@@ -27,13 +27,17 @@ func NewSdlError(msg string) *SdlError {
 }
 
 func (e *SdlError) Error() string {
-	return strings.Join(
-		[]string{
-			e.msg,
-			e.sdlError.Error(),
-		},
-		": ",
-	)
+	if e.sdlError == nil {
+		return e.msg
+	} else {
+		return strings.Join(
+			[]string{
+				e.msg,
+				e.sdlError.Error(),
+			},
+			": ",
+		)
+	}
 }
 
 func fillBackground(window *sdl.Window, renderer *sdl.Renderer) error {
