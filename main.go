@@ -139,26 +139,28 @@ func NewPaddel(initialX, initialY int) (*Paddel, error) {
 }
 
 func (p *Paddel) PutEvent(evt sdl.Event) {
-	log.Print("received event", evt)
 	switch t := evt.(type) {
-	case sdl.CommonEvent:
-		log.Print("key down event")
+	case *sdl.KeyDownEvent:
 		switch t.Keysym.Sym {
 		case sdl.K_UP:
 			log.Print("up event")
 			coord, _ := p.GetCoord()
-			coord.Y--
+			coord.Y = coord.Y - 10
 			p.newCoordChan <- coord
 		case sdl.K_DOWN:
 			log.Print("down event")
 			coord, _ := p.GetCoord()
-			coord.Y++
+			coord.Y = coord.Y + 10
 			p.newCoordChan <- coord
 		}
+	case *sdl.QuitEvent:
+		// FIXME how to quit all this?
+		log.Print("QuitEvent")
 	}
 }
 
 func (p *Paddel) GetCoord() (Coord, error) {
+	// Fixme: make this faster
 	return <-p.coordChan, nil
 }
 
@@ -184,7 +186,10 @@ func (p *Paddel) Render(renderer *sdl.Renderer) error {
 
 // never call this!
 func (p *Paddel) setCoords(newCoords Coord) {
+	log.Print("Receiving new coords")
+	log.Print("old coord", p.coord)
 	p.coord = newCoords
+	log.Print("new coord", p.coord)
 }
 
 // internal runner
