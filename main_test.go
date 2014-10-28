@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -51,7 +52,7 @@ func TestBackgroundFill(t *testing.T) {
 	}
 }
 
-func TestNewPaddel(t *testing.T) {
+func getPaddelForTest(t *testing.T) *Paddel {
 	paddel, err := NewPaddel(0, 0)
 	if err != nil {
 		t.Error("error creating paddel", err)
@@ -59,21 +60,81 @@ func TestNewPaddel(t *testing.T) {
 	if paddel == nil {
 		t.Error("paddel is nil for some reason")
 	}
+	return paddel
+}
+
+func TestNewPaddel(t *testing.T) {
+	getPaddelForTest(t)
 }
 
 func TestPaddleGetCoord(t *testing.T) {
-	paddel, err := NewPaddel(0, 0)
-	if err != nil {
-		t.Error("error creating paddel", err)
-	}
-	if paddel == nil {
-		t.Error("paddel is nil for some reason")
-	}
+	paddel := getPaddelForTest(t)
 	coord, err := paddel.GetCoord()
 	if err != nil {
 		t.Error("Paddel.GetCoord returned error", err)
 	}
 	if coord.X != 0 || coord.Y != 0 {
 		t.Error("Coordinates wrong!", coord)
+	}
+}
+
+func TestPaddelUpdate(t *testing.T) {
+	paddel := getPaddelForTest(t)
+
+	paddel.MoveDown(1)
+
+	coord, _ := paddel.GetCoord()
+	if coord.Y != 1 {
+		t.Error("Coordinate after moving down is wrong:", coord.Y)
+	}
+
+	paddel.MoveUp(1)
+
+	coord, _ = paddel.GetCoord()
+	if coord.Y != 0 {
+		t.Error("coordinate after moving up again is wrong:", coord.Y)
+	}
+
+	paddel.MoveUp(1)
+	coord, _ = paddel.GetCoord()
+	if coord.Y != 0 {
+		t.Error("Boundary checking doesn't work!")
+	}
+}
+
+func TestPaddelUpdateTiming(t *testing.T) {
+	paddel := getPaddelForTest(t)
+
+	ticker := time.NewTicker(time.Nanosecond)
+	currentTick := <-ticker.C
+	// generate more than just one event
+	paddel.MoveDown(1)
+	paddel.MoveDown(1)
+	paddel.MoveDown(1)
+	// need to get the latestmost ones
+	coord, _ := paddel.GetCoord()
+	oldTick := currentTick
+	currentTick = <-ticker.C
+	duration := currentTick.Sub(oldTick)
+	if duration.Nanoseconds() > 45000000 {
+		t.Fatal("duration:", duration.Nanoseconds())
+	}
+	if coord.Y != 3 {
+		t.Fatal("Coord are off in timing test:", coord.Y)
+	}
+
+	currentTick = <-ticker.C
+	coord, _ = paddel.GetCoord()
+	if coord.Y != 3 {
+		t.Fatal("Coord are off in second try:", coord.Y)
+	}
+	oldTick = currentTick
+	currentTick = <-ticker.C
+	duration = currentTick.Sub(oldTick)
+	if duration.Nanoseconds() > 45000000 {
+		t.Fatal("duration in second update:", duration.Nanoseconds())
+	}
+	if coord.Y != 3 {
+		t.Fatal("Coord are off in second update timing test:", coord.Y)
 	}
 }

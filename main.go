@@ -101,8 +101,8 @@ func (ed *EventDistributor) Run() {
 }
 
 type Coord struct {
-	X int
-	Y int
+	X uint
+	Y uint
 }
 
 type Paddel struct {
@@ -113,7 +113,7 @@ type Paddel struct {
 	newCoordChan chan Coord
 }
 
-func NewPaddel(initialX, initialY int) (*Paddel, error) {
+func NewPaddel(initialX, initialY uint) (*Paddel, error) {
 	p := Paddel{
 		coord:        Coord{X: initialX, Y: initialY},
 		surface:      sdl.CreateRGBSurface(0, int32(PADDEL_WIDTH), int32(PADDEL_LENGTH), 32, 0, 0, 0, 0),
@@ -144,14 +144,10 @@ func (p *Paddel) PutEvent(evt sdl.Event) {
 		switch t.Keysym.Sym {
 		case sdl.K_UP:
 			log.Print("up event")
-			coord, _ := p.GetCoord()
-			coord.Y = coord.Y - 10
-			p.newCoordChan <- coord
+			p.MoveUp(10)
 		case sdl.K_DOWN:
 			log.Print("down event")
-			coord, _ := p.GetCoord()
-			coord.Y = coord.Y + 10
-			p.newCoordChan <- coord
+			p.MoveDown(10)
 		}
 	case *sdl.QuitEvent:
 		// FIXME how to quit all this?
@@ -186,10 +182,7 @@ func (p *Paddel) Render(renderer *sdl.Renderer) error {
 
 // never call this!
 func (p *Paddel) setCoords(newCoords Coord) {
-	log.Print("Receiving new coords")
-	log.Print("old coord", p.coord)
 	p.coord = newCoords
-	log.Print("new coord", p.coord)
 }
 
 // internal runner
@@ -206,6 +199,22 @@ func (p *Paddel) run() {
 	}
 }
 
+func (p *Paddel) MoveDown(i uint) {
+	coord, _ := p.GetCoord()
+	coord.Y = coord.Y + i
+	p.newCoordChan <- coord
+}
+
+func (p *Paddel) MoveUp(i uint) {
+	coord, _ := p.GetCoord()
+	if coord.Y < i {
+		coord.Y = 0
+	} else {
+		coord.Y = coord.Y - i
+	}
+	p.newCoordChan <- coord
+}
+
 // Run the program after all init stuff
 func Run(window *sdl.Window, renderer *sdl.Renderer) error {
 	log.Print("starting run")
@@ -213,14 +222,14 @@ func Run(window *sdl.Window, renderer *sdl.Renderer) error {
 	w, h := window.GetSize()
 	leftPaddel, err := NewPaddel(
 		10,
-		(h-PADDEL_LENGTH)/2,
+		uint((h-PADDEL_LENGTH)/2),
 	)
 	if err != nil {
 		return err
 	}
 	rightPaddel, err := NewPaddel(
-		w-10-PADDEL_WIDTH,
-		(h-PADDEL_LENGTH)/2,
+		uint(w-10-PADDEL_WIDTH),
+		uint((h-PADDEL_LENGTH)/2),
 	)
 	if err != nil {
 		return err
