@@ -9,9 +9,9 @@ import (
 
 const (
 	BACKGROUND_COLOR = uint32(0x000000)
-	PADDEL_LENGTH    = 100
-	PADDEL_WIDTH     = 20
-	PADDEL_COLOR     = uint32(0xffffff)
+	PADDLE_LENGTH    = 100
+	PADDLE_WIDTH     = 20
+	PADDLE_COLOR     = uint32(0xffffff)
 	SCREEN_WIDTH     = 640
 	SCREEN_HEIGHT    = 480
 	NAME             = "Pong"
@@ -63,24 +63,76 @@ func Run(
 	if background == nil {
 		return NewPongError("background creation failed")
 	}
-	if background.FillRect(
-		&sdl.Rect{
-			X: 0,
-			Y: 0,
-			W: int32(screen.W),
-			H: int32(screen.H),
-		},
-		BACKGROUND_COLOR,
-	) != 0 {
+	if background.FillRect(nil, BACKGROUND_COLOR) != 0 {
 		return NewPongError("Filling background failed")
 	}
 	backgroundTexture := renderer.CreateTextureFromSurface(background)
 	if backgroundTexture == nil {
 		return NewPongError("Creating Background Texture failed")
 	}
-	// copy whole texture to whole target
-	if renderer.Copy(backgroundTexture, nil, nil) != 0 {
-		return NewPongError("Copying Background Texture failed")
+	paddleSurface := sdl.CreateRGBSurface(0, PADDLE_WIDTH, PADDLE_LENGTH, 32, 0, 0, 0, 0)
+	if paddleSurface == nil {
+		return NewPongError("Creating paddle surface failed")
+	}
+	if paddleSurface.FillRect(nil, PADDLE_COLOR) != 0 {
+		return NewPongError("Filling Paddle Surface failed")
+	}
+	paddleTexture := renderer.CreateTextureFromSurface(paddleSurface)
+	if paddleTexture == nil {
+		return NewPongError("Creating paddle texture failed")
+	}
+	leftPaddlePos := SCREEN_HEIGHT / 2
+	rightPaddlePos := SCREEN_HEIGHT / 2
+	// main loop
+	var evtQueue []string
+	for {
+		evtQueue = make([]string, 5)
+		// iterate over events
+		for evt := sdl.PollEvent(); evt != nil; evt = sdl.PollEvent() {
+			log.Print("polling events")
+			switch t := evt.(type) {
+			case *sdl.QuitEvent:
+				return NewPongError("Quitting the hard way ;)")
+			case *sdl.KeyDownEvent:
+				if t.Keysym.Sym == sdl.K_UP {
+					evtQueue = append(evtQueue, "upkey")
+				}
+				if t.Keysym.Sym == sdl.K_DOWN {
+					evtQueue = append(evtQueue, "downkey")
+				}
+			}
+		}
+
+		log.Print("processing events")
+		for _, evt := range evtQueue {
+			if evt == "upkey" {
+				rightPaddlePos -= 10
+			}
+			if evt == "downkey" {
+				rightPaddlePos += 10
+			}
+		}
+		// copy whole texture to whole target
+		if renderer.Copy(backgroundTexture, nil, nil) != 0 {
+			return NewPongError("Copying Background Texture failed")
+		}
+		if renderer.Copy(paddleTexture, nil, &sdl.Rect{
+			W: PADDLE_WIDTH,
+			H: PADDLE_LENGTH,
+			Y: int32(leftPaddlePos - PADDLE_LENGTH/2),
+			X: 10,
+		}) != 0 {
+			return NewPongError("Copying left paddle failed")
+		}
+		if renderer.Copy(paddleTexture, nil, &sdl.Rect{
+			W: PADDLE_WIDTH,
+			H: PADDLE_LENGTH,
+			Y: int32(rightPaddlePos - PADDLE_LENGTH/2),
+			X: SCREEN_WIDTH - 10 - PADDLE_WIDTH,
+		}) != 0 {
+			return NewPongError("Copying left paddle failed")
+		}
+		renderer.Present()
 	}
 	return nil
 }
