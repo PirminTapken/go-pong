@@ -15,6 +15,30 @@ const (
 	SCREEN_WIDTH     = 640
 	SCREEN_HEIGHT    = 480
 	NAME             = "Pong"
+	PADDING          = 10
+)
+
+type Event struct {
+	Key sdl.Keycode
+	Op  func(int, int) int
+}
+
+func add(a, b int) int {
+	return a + b
+}
+func sub(a, b int) int {
+	return a - b
+}
+
+var (
+	leftPaddleEvents = []Event{
+		Event{sdl.K_w, sub},
+		Event{sdl.K_s, add},
+	}
+	rightPaddleEvents = []Event{
+		Event{sdl.K_UP, sub},
+		Event{sdl.K_DOWN, add},
+	}
 )
 
 type PongError struct {
@@ -43,6 +67,93 @@ func (e *PongError) Error() string {
 		": ",
 	)
 	return errMsg
+}
+
+type Paddle struct {
+	PosX, PosY int
+	W, H       int
+	Events     []Event
+}
+
+func (p *Paddle) Update(events []sdl.Event) {
+	for _, event := range events {
+		switch t := event.(type) {
+		case *sdl.KeyDownEvent:
+			log.Print("key down event")
+			for _, evt := range p.Events {
+				if evt.Key == t.Keysym.Sym {
+					p.PosY = evt.Op(p.PosY, 10)
+				}
+			}
+		}
+	}
+}
+
+func GetEventList() []sdl.Event {
+	list := make([]sdl.Event, 10)
+	for evt := sdl.PollEvent(); evt != nil; evt = sdl.PollEvent() {
+		list = append(list, evt)
+	}
+	return list
+}
+
+type Ball struct {
+	W, H   float64
+	DX, DY float64 // direction
+	X, Y   float64
+}
+
+func detectCollision(a, b sdl.Rect) bool {
+	// b.X is same height as a
+	if a.X <= b.X && a.X+a.H > b.X {
+		// b.Y is same height as a
+		if a.Y <= b.Y && a.Y+a.W > b.Y {
+			return true
+		}
+	}
+	return false
+}
+
+func MoveBall(
+	b Ball,
+	leftPaddle, rightPaddle Paddle,
+	arenaWidth, arenaHeight int,
+) Ball {
+	currentBallPos := []float64{
+		float64(b.X + b.W/2),
+		float64(b.Y + b.H/2),
+	}
+	directionVector := []float64{
+		float64(b.DX),
+		float64(b.DY),
+	}
+	// tx == currentBallPos[0] + directionVector[0] * r
+	// ty == currentBallPos[1] + directionVector[1] * r
+
+	// Let's first check for left wall
+	// This makes x == 0 and y might be anything
+	// 0 == currentBallPos[0] + directionVector[0] * r
+	// -> -currentBallPos[0] == directionVector[0] * r
+	// -> -currentBallPos[0] / directionVector[0] == r
+	// if r > 1 then it's too far away and we don't care
+
+	// We collide to the left
+	if (-currentBallPos[0] / directionVector[0]) < 1 {
+		// collided left wall
+	}
+	if (-currentBallPos[1] / directionVector[1]) < 1 {
+		// collided bottom line
+	}
+
+	// Fist Fist Fist
+	return Ball{
+		DX:b.DX,
+		DY : b.DY,
+		X: b.X + b.DX,
+		Y: b.Y + b.DY,
+		H: b.H,
+		W: b.W,
+	}
 }
 
 // run on the renderer
@@ -81,56 +192,79 @@ func Run(
 	if paddleTexture == nil {
 		return NewPongError("Creating paddle texture failed")
 	}
-	leftPaddlePos := SCREEN_HEIGHT / 2
-	rightPaddlePos := SCREEN_HEIGHT / 2
-	// main loop
-	var evtQueue []string
-	for {
-		evtQueue = make([]string, 5)
-		// iterate over events
-		for evt := sdl.PollEvent(); evt != nil; evt = sdl.PollEvent() {
-			log.Print("polling events")
-			switch t := evt.(type) {
-			case *sdl.QuitEvent:
-				return NewPongError("Quitting the hard way ;)")
-			case *sdl.KeyDownEvent:
-				if t.Keysym.Sym == sdl.K_UP {
-					evtQueue = append(evtQueue, "upkey")
-				}
-				if t.Keysym.Sym == sdl.K_DOWN {
-					evtQueue = append(evtQueue, "downkey")
-				}
-			}
-		}
+	leftPaddle := Paddle{
+		PosX:   PADDING,
+		PosY:   SCREEN_HEIGHT / 2,
+		Events: leftPaddleEvents,
+	}
+	rightPaddle := Paddle{
+		PosX:   SCREEN_WIDTH - PADDING - PADDLE_WIDTH,
+		PosY:   SCREEN_HEIGHT / 2,
+		Events: rightPaddleEvents,
+	}
 
-		log.Print("processing events")
-		for _, evt := range evtQueue {
-			if evt == "upkey" {
-				rightPaddlePos -= 10
-			}
-			if evt == "downkey" {
-				rightPaddlePos += 10
-			}
-		}
+	ball := Ball{
+		X:  SCREEN_WIDTH / 2,
+		Y:  SCREEN_HEIGHT / 2,
+		DX: 0.7,
+		DY: 0.3,
+		W:  40,
+		H:  40,
+	}
+	ballSurface := sdl.CreateRGBSurface(
+		0,
+		int32(ball.W), int32(ball.H),
+		32, 0, 0, 0, 0,
+	)
+	ballSurface.FillRect(
+		nil,
+		PADDLE_COLOR,
+	)
+	ballTexture := renderer.CreateTextureFromSurface(ballSurface)
+
+	// main loop
+	for {
+		// iterate over events
+
+		events := GetEventList()
+		leftPaddle.Update(events)
+		rightPaddle.Update(events)
+		ball = MoveBall(ball, leftPaddle, rightPaddle, SCREEN_WIDTH, SCREEN_HEIGHT)
+
 		// copy whole texture to whole target
 		if renderer.Copy(backgroundTexture, nil, nil) != 0 {
 			return NewPongError("Copying Background Texture failed")
 		}
-		if renderer.Copy(paddleTexture, nil, &sdl.Rect{
-			W: PADDLE_WIDTH,
-			H: PADDLE_LENGTH,
-			Y: int32(leftPaddlePos - PADDLE_LENGTH/2),
-			X: 10,
-		}) != 0 {
+		// TODO
+		//leftPaddlePos := GetPaddlePosition(events, oldposition)
+		// or something like that? and then use these information
+		render := func(X, Y int) int {
+			return renderer.Copy(paddleTexture, nil, &sdl.Rect{
+				W: int32(PADDLE_WIDTH),
+				H: int32(PADDLE_LENGTH),
+				Y: int32(Y),
+				X: int32(X),
+			})
+		}
+		if render(
+			leftPaddle.PosX,
+			leftPaddle.PosY-PADDLE_LENGTH/2,
+		) != 0 {
 			return NewPongError("Copying left paddle failed")
 		}
-		if renderer.Copy(paddleTexture, nil, &sdl.Rect{
-			W: PADDLE_WIDTH,
-			H: PADDLE_LENGTH,
-			Y: int32(rightPaddlePos - PADDLE_LENGTH/2),
-			X: SCREEN_WIDTH - 10 - PADDLE_WIDTH,
+		if render(
+			rightPaddle.PosX,
+			rightPaddle.PosY-PADDLE_LENGTH/2,
+		) != 0 {
+			return NewPongError("Copying right paddle failed")
+		}
+		if renderer.Copy(ballTexture, nil, &sdl.Rect{
+			W: int32(ball.W),
+			H: int32(ball.H),
+			X: int32(ball.X),
+			Y: int32(ball.Y),
 		}) != 0 {
-			return NewPongError("Copying left paddle failed")
+			return NewPongError("Rendering ball failed")
 		}
 		renderer.Present()
 	}
