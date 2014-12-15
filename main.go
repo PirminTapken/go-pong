@@ -16,6 +16,7 @@ const (
 	SCREEN_HEIGHT    = 480
 	NAME             = "Pong"
 	PADDING          = 10
+	VERSION = "0.1"
 )
 
 type PongError struct {
@@ -46,9 +47,6 @@ func (e *PongError) Error() string {
 	return errMsg
 }
 
-type Paddle struct {
-	PosX, PosY int
-}
 
 func GetEventList() []sdl.Event {
 	list := make([]sdl.Event, 10)
@@ -56,177 +54,6 @@ func GetEventList() []sdl.Event {
 		list = append(list, evt)
 	}
 	return list
-}
-
-type Ball struct {
-	DX, DY float64 // direction
-	X, Y   float64
-}
-
-func detectCollision(a, b sdl.Rect) bool {
-	// b.X is same height as a
-	if a.X <= b.X && a.X+a.H > b.X {
-		// b.Y is same height as a
-		if a.Y <= b.Y && a.Y+a.W > b.Y {
-			return true
-		}
-	}
-	return false
-}
-
-func MoveBall(
-	b Ball,
-	leftPaddle, rightPaddle Paddle,
-	arenaWidth, arenaHeight int,
-) Ball {
-	currentBallPos := []float64{
-		float64(b.X),
-		float64(b.Y),
-	}
-	directionVector := []float64{
-		float64(b.DX),
-		float64(b.DY),
-	}
-	// tx == currentBallPos[0] + directionVector[0] * r
-	// ty == currentBallPos[1] + directionVector[1] * r
-
-	// Let's first check for left wall
-	// This makes x == 0 and y might be anything
-	// 0 == currentBallPos[0] + directionVector[0] * r
-	// -> -currentBallPos[0] == directionVector[0] * r
-	// -> -currentBallPos[0] / directionVector[0] == r
-	// if r > 1 then it's too far away and we don't care
-
-	// We collide to the left
-	if (-currentBallPos[0] / directionVector[0]) < 1 {
-		// collided left wall
-	}
-	if (-currentBallPos[1] / directionVector[1]) < 1 {
-		// collided bottom line
-	}
-
-	// Fist Fist Fist
-	return Ball{
-		DX:b.DX,
-		DY : b.DY,
-		X: b.X + b.DX,
-		Y: b.Y + b.DY,
-	}
-}
-
-// run on the renderer
-func Run(
-	screen struct {
-		W int
-		H int
-	},
-	renderer *sdl.Renderer,
-) error {
-	background := sdl.CreateRGBSurface(
-		0,
-		int32(screen.W),
-		int32(screen.H),
-		32,
-		0, 0, 0, 0,
-	)
-	if background == nil {
-		return NewPongError("background creation failed")
-	}
-	if background.FillRect(nil, BACKGROUND_COLOR) != 0 {
-		return NewPongError("Filling background failed")
-	}
-	backgroundTexture := renderer.CreateTextureFromSurface(background)
-	if backgroundTexture == nil {
-		return NewPongError("Creating Background Texture failed")
-	}
-	paddleSurface := sdl.CreateRGBSurface(0, PADDLE_WIDTH, PADDLE_LENGTH, 32, 0, 0, 0, 0)
-	if paddleSurface == nil {
-		return NewPongError("Creating paddle surface failed")
-	}
-	if paddleSurface.FillRect(nil, PADDLE_COLOR) != 0 {
-		return NewPongError("Filling Paddle Surface failed")
-	}
-	paddleTexture := renderer.CreateTextureFromSurface(paddleSurface)
-	if paddleTexture == nil {
-		return NewPongError("Creating paddle texture failed")
-	}
-	leftPaddle := Paddle{
-		PosX:   PADDING,
-		PosY:   SCREEN_HEIGHT / 2,
-		Events: leftPaddleEvents,
-	}
-	rightPaddle := Paddle{
-		PosX:   SCREEN_WIDTH - PADDING - PADDLE_WIDTH,
-		PosY:   SCREEN_HEIGHT / 2,
-		Events: rightPaddleEvents,
-	}
-
-	ball := Ball{
-		X:  SCREEN_WIDTH / 2,
-		Y:  SCREEN_HEIGHT / 2,
-		DX: 0.7,
-		DY: 0.3,
-		W:  40,
-		H:  40,
-	}
-	ballSurface := sdl.CreateRGBSurface(
-		0,
-		int32(ball.W), int32(ball.H),
-		32, 0, 0, 0, 0,
-	)
-	ballSurface.FillRect(
-		nil,
-		PADDLE_COLOR,
-	)
-	ballTexture := renderer.CreateTextureFromSurface(ballSurface)
-
-	// main loop
-	for {
-		// iterate over events
-
-		events := GetEventList()
-		leftPaddle.Update(events)
-		rightPaddle.Update(events)
-		ball = MoveBall(ball, leftPaddle, rightPaddle, SCREEN_WIDTH, SCREEN_HEIGHT)
-
-		// copy whole texture to whole target
-		if renderer.Copy(backgroundTexture, nil, nil) != 0 {
-			return NewPongError("Copying Background Texture failed")
-		}
-		// TODO
-		//leftPaddlePos := GetPaddlePosition(events, oldposition)
-		// or something like that? and then use these information
-		render := func(X, Y int) int {
-			return renderer.Copy(paddleTexture, nil, &sdl.Rect{
-				W: int32(PADDLE_WIDTH),
-				H: int32(PADDLE_LENGTH),
-				Y: int32(Y),
-				X: int32(X),
-			})
-		}
-		if render(
-			leftPaddle.PosX,
-			leftPaddle.PosY-PADDLE_LENGTH/2,
-		) != 0 {
-			return NewPongError("Copying left paddle failed")
-		}
-		if render(
-			rightPaddle.PosX,
-			rightPaddle.PosY-PADDLE_LENGTH/2,
-		) != 0 {
-			return NewPongError("Copying right paddle failed")
-		}
-		if renderer.Copy(ballTexture, nil, &sdl.Rect{
-			W: int32(ball.W),
-			H: int32(ball.H),
-			X: int32(ball.X),
-			Y: int32(ball.Y),
-		}) != 0 {
-			return NewPongError("Rendering ball failed")
-		}
-		renderer.Present()
-	}
-	return nil
 }
 
 func main() {
@@ -255,10 +82,7 @@ func main() {
 		log.Fatal(sdl.GetError(), "creating renderer failed")
 	}
 	defer renderer.Destroy()
-	err := Run(struct {
-		W int
-		H int
-	}{SCREEN_WIDTH, SCREEN_HEIGHT}, renderer)
+	err := Run()
 	if err != nil {
 		log.Fatal(err)
 	}
