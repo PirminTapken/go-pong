@@ -18,29 +18,6 @@ const (
 	PADDING          = 10
 )
 
-type Event struct {
-	Key sdl.Keycode
-	Op  func(int, int) int
-}
-
-func add(a, b int) int {
-	return a + b
-}
-func sub(a, b int) int {
-	return a - b
-}
-
-var (
-	leftPaddleEvents = []Event{
-		Event{sdl.K_w, sub},
-		Event{sdl.K_s, add},
-	}
-	rightPaddleEvents = []Event{
-		Event{sdl.K_UP, sub},
-		Event{sdl.K_DOWN, add},
-	}
-)
-
 type PongError struct {
 	SDLError error
 	Msg      string
@@ -71,22 +48,6 @@ func (e *PongError) Error() string {
 
 type Paddle struct {
 	PosX, PosY int
-	W, H       int
-	Events     []Event
-}
-
-func (p *Paddle) Update(events []sdl.Event) {
-	for _, event := range events {
-		switch t := event.(type) {
-		case *sdl.KeyDownEvent:
-			log.Print("key down event")
-			for _, evt := range p.Events {
-				if evt.Key == t.Keysym.Sym {
-					p.PosY = evt.Op(p.PosY, 10)
-				}
-			}
-		}
-	}
 }
 
 func GetEventList() []sdl.Event {
@@ -98,7 +59,6 @@ func GetEventList() []sdl.Event {
 }
 
 type Ball struct {
-	W, H   float64
 	DX, DY float64 // direction
 	X, Y   float64
 }
@@ -120,8 +80,8 @@ func MoveBall(
 	arenaWidth, arenaHeight int,
 ) Ball {
 	currentBallPos := []float64{
-		float64(b.X + b.W/2),
-		float64(b.Y + b.H/2),
+		float64(b.X),
+		float64(b.Y),
 	}
 	directionVector := []float64{
 		float64(b.DX),
@@ -151,8 +111,6 @@ func MoveBall(
 		DY : b.DY,
 		X: b.X + b.DX,
 		Y: b.Y + b.DY,
-		H: b.H,
-		W: b.W,
 	}
 }
 
