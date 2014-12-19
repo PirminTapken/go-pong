@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/veandco/go-sdl2/sdl"
 	"log"
 	"strings"
-
-	"github.com/veandco/go-sdl2/sdl"
+	"time"
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 	SCREEN_HEIGHT    = 480
 	NAME             = "Pong"
 	PADDING          = 10
-	VERSION = "0.1"
+	VERSION          = "0.1"
 )
 
 type PongError struct {
@@ -47,7 +47,6 @@ func (e *PongError) Error() string {
 	return errMsg
 }
 
-
 func GetEventList() []sdl.Event {
 	list := make([]sdl.Event, 10)
 	for evt := sdl.PollEvent(); evt != nil; evt = sdl.PollEvent() {
@@ -56,12 +55,36 @@ func GetEventList() []sdl.Event {
 	return list
 }
 
+func Run(renderer *sdl.Renderer) (err error) {
+	clockChan := time.Tick(1 * time.Millisecond)
+	quit := make(chan bool, 1)
+	for {
+		eventList := GetEventList()
+		for _, event := range eventList {
+			switch e := event.(type) {
+			case *sdl.KeyDownEvent:
+				if e.Keysym.Sym == sdl.K_q {
+					quit <- true
+				}
+			}
+		}
+		select {
+		case <-quit:
+			return nil
+		default:
+			// continue
+		}
+		// wait for tick
+		<-clockChan
+	}
+}
+
 func main() {
 	if sdl.Init(sdl.INIT_EVERYTHING) != 0 {
 		log.Fatal(sdl.GetError())
 	}
 	defer sdl.Quit()
-	window := sdl.CreateWindow(
+	window, err := sdl.CreateWindow(
 		NAME,
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
@@ -69,20 +92,20 @@ func main() {
 		SCREEN_HEIGHT,
 		0,
 	)
-	if window == nil {
-		log.Fatal(sdl.GetError(), "creating window failed")
+	if err != nil {
+		log.Fatal("creating window failed", err)
 	}
 	defer window.Destroy()
-	renderer := sdl.CreateRenderer(
+	renderer, err := sdl.CreateRenderer(
 		window,
 		-1,
 		sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC,
 	)
-	if renderer == nil {
-		log.Fatal(sdl.GetError(), "creating renderer failed")
+	if err != nil {
+		log.Fatal("creating renderer failed", err)
 	}
 	defer renderer.Destroy()
-	err := Run()
+	err = Run(renderer)
 	if err != nil {
 		log.Fatal(err)
 	}
