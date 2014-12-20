@@ -38,6 +38,14 @@ func (v *Vector2d) Len() float64 {
 	return math.Sqrt(v.Dot(v))
 }
 
+// Reflect reflects w from v. Assumption is made that they
+// intersect. This is not checked on purpose
+func (v *Vector2d) Reflect(w *Vector2d) *Vector2d {
+	n := &Vector2d{-v[1], v[0]}
+	r := w.Sub(n.Scale((2 * v.Dot(n))))
+	return r
+}
+
 func (v *Vector2d) GoString() string {
 	return fmt.Sprintf(`&Vector2d{%v, %v}`, v[0], v[1])
 }
