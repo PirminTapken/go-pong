@@ -50,6 +50,7 @@ func (e *PongError) Error() string {
 
 type Object struct {
 	W, H, X, Y float64
+	DX, DY     float64
 }
 
 func GetEventList() []sdl.Event {
@@ -121,9 +122,46 @@ func UpdatePaddle(universeBus chan map[string]Object, errChan chan error, paddle
 		errChan <- fmt.Errorf(`Key "%s" does not exist in our universe!`, paddle)
 		return
 	}
-	tmp.Y = tmp.Y + v
+	if 0 < tmp.Y+v && tmp.Y+v < 1 {
+		tmp.Y = tmp.Y + v
+	}
 	// assign updated paddle back as we don't have a pointer (yet)
 	u[paddle] = tmp
+}
+
+func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.Duration) {
+	u := <-universeBus
+	defer func() {
+		universeBus <- u
+	}()
+	ball := u["Ball"]
+	defer func() {
+		u["Ball"] = ball
+	}()
+	log.Print("duration: ", d)
+	log.Print("duration in minutes: ", d.Minutes())
+
+	dir := &Vector2d{ball.DX * d.Seconds(), ball.DY * d.Seconds()}
+	log.Print("dir: ", dir)
+	pos := &Vector2d{ball.X, ball.Y}
+	log.Print("pos: ", pos)
+
+	newPos := pos.Add(dir)
+	line := &Line{pos, newPos}
+	wall := &Line{&Vector2d{0, 0}, &Vector2d{0, 1}}
+
+	h := line.Intersect(wall)
+	if 0 < h && h < 1 {
+		log.Print("intersect")
+		// we do intersect
+		hitPos := pos.Add(dir.Scale(h))
+		remainder := line.Vector2d().Len() - h
+		newDir := wall.Vector2d().Reflect(dir.Scale(remainder))
+		newPos = hitPos.Add(newDir)
+	}
+	ball.X = newPos[0]
+	ball.Y = newPos[1]
+	log.Print("ball: ", ball)
 }
 
 // Run the game
@@ -131,7 +169,10 @@ func Run(e *Engine, universeBus chan map[string]Object) (err error) {
 	clockChan := time.Tick(time.Second / 60)
 	quit := make(chan bool, 1)
 	errChan := make(chan error)
+	now := time.Now()
+	last := now
 	for {
+		go UpdateBall(universeBus, errChan, now.Sub(last))
 		eventList := GetEventList()
 		for _, event := range eventList {
 			switch e := event.(type) {
@@ -163,7 +204,8 @@ func Run(e *Engine, universeBus chan map[string]Object) (err error) {
 			return err
 		}
 		// wait for tick
-		<-clockChan
+		last = now
+		now = <-clockChan
 	}
 }
 
@@ -225,10 +267,12 @@ func main() {
 			Y: 0.5,
 		},
 		"Ball": Object{
-			W: 0.1,
-			H: 0.1,
-			X: 0.5,
-			Y: 0.5,
+			W:  0.1,
+			H:  0.1,
+			X:  0.5,
+			Y:  0.5,
+			DX: 0.1,
+			DY: 0.1,
 		},
 	}
 	universeBus := make(chan map[string]Object, 1)
