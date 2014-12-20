@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -37,6 +38,10 @@ func (v *Vector2d) Len() float64 {
 	return math.Sqrt(v.Dot(v))
 }
 
+func (v *Vector2d) GoString() string {
+	return fmt.Sprintf(`&Vector2d{%v, %v}`, v[0], v[1])
+}
+
 type Line [2]*Vector2d
 
 // get the factor for intersection with line k
@@ -53,4 +58,8 @@ func (l *Line) Intersect(k *Line) float64 {
 
 func (l *Line) Vector2d() *Vector2d {
 	return l[0].Add(l[1])
+}
+
+func (l *Line) GoString() string {
+	return fmt.Sprintf(`&Line{%v, %v}`, l[0], l[1])
 }
