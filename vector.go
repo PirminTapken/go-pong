@@ -38,6 +38,11 @@ func (v *Vector2d) Len() float64 {
 	return math.Sqrt(v.Dot(v))
 }
 
+// Copy returns a pointer to a new copy of v
+func (v *Vector2d) Copy() *Vector2d {
+	return &Vector2d{v[0], v[1]}
+}
+
 // Reflect reflects w from v. Assumption is made that they
 // intersect. This is not checked on purpose
 func (v *Vector2d) Reflect(w *Vector2d) *Vector2d {
