@@ -67,11 +67,15 @@ type Line [2]*Vector2d
 func (l *Line) Intersect(k *Line) float64 {
 	// see http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
 	// for the calculation
+	A, B := l[0], l[1]
+	C, D := k[0], k[1]
 
-	E := l[1].Sub(l[0])
-	F := k[1].Sub(k[0])
-	P := &Vector2d{-1 * E[1], E[0]}
-	h := l[1].Sub(k[1]).Dot(P) / F.Dot(P)
+	E := B.Sub(A)
+	F := D.Sub(C)
+
+	P := E.Inverse()
+	h := (A.Sub(C)).Dot(P) / F.Dot(P)
+
 	return h
 }
 
