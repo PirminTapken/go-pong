@@ -48,6 +48,29 @@ func TestReflect(t *testing.T) {
 	}
 }
 
+func TestLineIntersect(t *testing.T) {
+	A := &Vector2d{0, 1}
+	B := &Vector2d{1, 1}
+	AB := &Line{A, B}
+
+	C := &Vector2d{0.5, 0}
+	D := &Vector2d{0.5, 2}
+	CD := &Line{C, D}
+
+	// h should be:
+	// AB == B - A
+	// CD == D - C
+
+	h := AB.Intersect(CD)
+	if h != 0.5 {
+		t.Errorf("h(%v) != 0.5", h)
+	}
+	k := CD.Intersect(AB)
+	if k != 0.5 {
+		t.Errorf("h(%v) != 0.5", k)
+	}
+}
+
 func TestLineVector2d(t *testing.T) {
 	A := &Vector2d{0, 1}
 	B := &Vector2d{1, 1}
