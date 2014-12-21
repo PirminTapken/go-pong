@@ -51,6 +51,12 @@ func (v *Vector2d) Reflect(w *Vector2d) *Vector2d {
 	return r
 }
 
+// Inverse returns the inverse vector in regard to the
+// dot product
+func (v *Vector2d) Inverse() *Vector2d {
+	return &Vector2d{-v[1], v[0]}
+}
+
 func (v *Vector2d) GoString() string {
 	return fmt.Sprintf(`&Vector2d{%v, %v}`, v[0], v[1])
 }

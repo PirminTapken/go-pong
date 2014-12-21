@@ -31,6 +31,14 @@ func TestLen(t *testing.T) {
 	}
 }
 
+func TestInverse(t *testing.T) {
+	a := &Vector2d{1, 0}
+	iA := a.Inverse()
+	if a.Dot(iA) != 0 {
+		t.Errorf("%v Dot %v isn't 0", a, iA)
+	}
+}
+
 func TestReflect(t *testing.T) {
 	a := &Vector2d{3, 3}
 	b := &Vector2d{0, 1}
