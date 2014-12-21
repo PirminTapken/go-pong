@@ -70,7 +70,7 @@ func (l *Line) Intersect(k *Line) float64 {
 }
 
 func (l *Line) Vector2d() *Vector2d {
-	return l[0].Add(l[1])
+	return l[1].Sub(l[0])
 }
 
 func (l *Line) GoString() string {
