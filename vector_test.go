@@ -39,3 +39,16 @@ func TestReflect(t *testing.T) {
 		t.Errorf("%v is not [3, -3]", c)
 	}
 }
+
+func TestLineVector2d(t *testing.T) {
+	A := &Vector2d{0, 1}
+	B := &Vector2d{1, 1}
+	AB := &Line{A, B}
+	vAB := AB.Vector2d()
+	if vAB[0] != 1 || vAB[1] != 0 {
+		t.Errorf(
+			"AB(%v) converted to vAB(%v) isn't [0, 1]",
+			AB, vAB,
+		)
+	}
+}
