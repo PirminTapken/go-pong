@@ -38,6 +38,26 @@ func (v *Vector2d) Len() float64 {
 	return math.Sqrt(v.Dot(v))
 }
 
+// SameAs returns true only if v and w point to the same object
+func (v *Vector2d) SameAs(w *Vector2d) bool {
+	if v == w {
+		return true
+	}
+	return false
+}
+
+// Equals checks if Vectors have the same values
+func (v *Vector2d) Equals(w *Vector2d) bool {
+	margin := 0.0000000001
+	if v.SameAs(w) {
+		return true
+	}
+	if w[0]-v[0] < margin && w[1]-v[1] < margin {
+		return true
+	}
+	return false
+}
+
 // Copy returns a pointer to a new copy of v
 func (v *Vector2d) Copy() *Vector2d {
 	return &Vector2d{v[0], v[1]}
