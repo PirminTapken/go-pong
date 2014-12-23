@@ -43,8 +43,15 @@ func TestReflect(t *testing.T) {
 	a := &Vector2d{3, 3}
 	b := &Vector2d{0, 1}
 	c := b.Reflect(a)
-	if c[0] != -3 || c[1] != 3 {
+	should := &Vector2d{-3, 3}
+	if !c.Equals(should) {
+		//	if c[0] != -3 || c[1] != 3 {
 		t.Errorf("%v is not [3, -3]", c)
+	}
+	c = a.Reflect(b)
+	should = &Vector2d{1, 0}
+	if !c.Equals(should) {
+		t.Errorf("%v is not [1, 0]", c)
 	}
 }
 
