@@ -66,8 +66,11 @@ func (v *Vector2d) Copy() *Vector2d {
 // Reflect reflects w from v. Assumption is made that they
 // intersect. This is not checked on purpose
 func (v *Vector2d) Reflect(w *Vector2d) *Vector2d {
+	// implementation reaped from
+	// http://math.stackexchange.com/questions/13261/how-to-get-a-reflection-vector
 	n := &Vector2d{-v[1], v[0]}
-	r := w.Sub(n.Scale((2 * w.Dot(n))))
+	//r := w.Sub(n.Scale((2 * w.Dot(n))))
+	r := w.Sub(n.Scale(w.Scale(2).Dot(n) / (n.Len() * n.Len())))
 	return r
 }
 

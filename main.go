@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 	"log"
+	"os"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -68,8 +71,10 @@ type Engine struct {
 
 // Render the world
 func (e *Engine) Render(universeBus chan map[string]Object) (err error) {
+	log.Print("Get unierse to render")
 	universe := <-universeBus
 	defer func() {
+		log.Print("Free universe after render")
 		universeBus <- universe
 	}()
 	e.Renderer.Copy(e.Background, nil, nil)
@@ -129,7 +134,31 @@ func UpdatePaddle(universeBus chan map[string]Object, errChan chan error, paddle
 	u[paddle] = tmp
 }
 
+type WallIntersection struct {
+	IntersectAt float64
+	Wall        *Line
+}
+
+// WallIntersections returns wall intersections
+func WallIntersections(walls []*Line, line *Line) []WallIntersection {
+	intersections := make([]WallIntersection, 4)
+	for _, wall := range walls {
+		log.Print("wall: ", wall)
+		var intersection WallIntersection
+		intersection.IntersectAt = line.Intersect(wall)
+		intersection.Wall = wall
+	}
+	return intersections
+}
+
 func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.Duration) {
+	walls := []*Line{
+		&Line{&Vector2d{0, 0}, &Vector2d{0, 1}},
+		&Line{&Vector2d{0, 1}, &Vector2d{1, 1}},
+		&Line{&Vector2d{1, 1}, &Vector2d{1, 0}},
+		&Line{&Vector2d{1, 0}, &Vector2d{0, 0}},
+	}
+
 	u := <-universeBus
 	defer func() {
 		universeBus <- u
@@ -138,60 +167,86 @@ func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.D
 	defer func() {
 		u["Ball"] = ball
 	}()
-	log.Print("duration: ", d)
-	log.Print("duration in minutes: ", d.Minutes())
 
-	dir := &Vector2d{ball.DX * d.Seconds(), ball.DY * d.Seconds()}
-	log.Print("dir: ", dir)
-	pos := &Vector2d{ball.X, ball.Y}
-	log.Print("pos: ", pos)
+	initialDir := &Vector2d{ball.DX * d.Seconds(), ball.DY * d.Seconds()}
+	initialPos := &Vector2d{ball.X, ball.Y}
 
+	pos := initialPos.Copy()
+	dir := initialDir.Copy()
 	newPos := pos.Add(dir)
 	line := &Line{pos, newPos}
-	wall := &Line{&Vector2d{0, 0}, &Vector2d{0, 1}}
+	for line.Vector2d().Len() > 0 {
 
-	h := line.Intersect(wall)
-	if 0 < h && h < 1 {
-		log.Print("intersect")
-		// we do intersect
-		hitPos := pos.Add(dir.Scale(h))
-		remainder := line.Vector2d().Len() - h
-		newDir := wall.Vector2d().Reflect(dir.Scale(remainder))
-		newPos = hitPos.Add(newDir)
+		wallmap := make(map[float64]*Line, 4)
+
+		h := make([]float64, 4)
+
+		for i, wall := range walls {
+			h[i] = line.Intersect(wall)
+			wallmap[h[i]] = wall
+		}
+
+		sort.Float64s(h)
+
+		c := 0
+		for _, f := range h {
+			if 0 < f && f < 1 {
+				// we do intersect
+				hitPos := pos.Add(dir.Scale(f))
+				remainder := line.Vector2d().Len() - f
+				dir = wallmap[f].Vector2d().Reflect(dir.Scale(remainder))
+				newPos = hitPos.Add(dir)
+				pos = hitPos
+				line = &Line{pos, newPos}
+				c = c + 1
+			}
+		}
+		if c == 0 {
+			newPos = pos.Add(dir)
+			line = &Line{pos, newPos}
+			break
+		}
 	}
 	ball.X = newPos[0]
 	ball.Y = newPos[1]
-	log.Print("ball: ", ball)
+}
+
+func LoopEvents(universeBus chan map[string]Object, errChan chan error, quit chan bool) {
+	eventList := GetEventList()
+	for _, event := range eventList {
+		switch e := event.(type) {
+		case *sdl.KeyDownEvent:
+			switch e.Keysym.Sym {
+			case sdl.K_q:
+				quit <- true
+			case sdl.K_DOWN:
+				go UpdatePaddle(universeBus, errChan, "Right Paddle", DOWN)
+			case sdl.K_UP:
+				go UpdatePaddle(universeBus, errChan, "Right Paddle", UP)
+			case sdl.K_w:
+				go UpdatePaddle(universeBus, errChan, "Left Paddle", UP)
+			case sdl.K_s:
+				go UpdatePaddle(universeBus, errChan, "Left Paddle", DOWN)
+			}
+
+		}
+	}
 }
 
 // Run the game
 func Run(e *Engine, universeBus chan map[string]Object) (err error) {
-	clockChan := time.Tick(time.Second / 60)
+	fps, err := strconv.Atoi(os.Getenv("FPS"))
+	if err != nil {
+		fps = 60
+	}
+	clockChan := time.Tick(time.Second / time.Duration(fps*int(time.Second)))
 	quit := make(chan bool, 1)
 	errChan := make(chan error)
 	now := time.Now()
 	last := now
 	for {
 		go UpdateBall(universeBus, errChan, now.Sub(last))
-		eventList := GetEventList()
-		for _, event := range eventList {
-			switch e := event.(type) {
-			case *sdl.KeyDownEvent:
-				switch e.Keysym.Sym {
-				case sdl.K_q:
-					quit <- true
-				case sdl.K_DOWN:
-					go UpdatePaddle(universeBus, errChan, "Right Paddle", DOWN)
-				case sdl.K_UP:
-					go UpdatePaddle(universeBus, errChan, "Right Paddle", UP)
-				case sdl.K_w:
-					go UpdatePaddle(universeBus, errChan, "Left Paddle", UP)
-				case sdl.K_s:
-					go UpdatePaddle(universeBus, errChan, "Left Paddle", DOWN)
-				}
-
-			}
-		}
+		go LoopEvents(universeBus, errChan, quit)
 		select {
 		case <-quit:
 			return nil
@@ -271,7 +326,7 @@ func main() {
 			H:  0.1,
 			X:  0.5,
 			Y:  0.5,
-			DX: 0.1,
+			DX: 0.2,
 			DY: 0.1,
 		},
 	}
