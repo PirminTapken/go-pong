@@ -6,7 +6,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -162,40 +161,6 @@ func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.D
 	}
 	ball.X = newPos[0]
 	ball.Y = newPos[1]
-}
-
-func PaddleMover(name string,
-	upEvent, downEvent sdl.Keycode,
-	universeBus chan map[string]Object,
-	errChan chan error,
-	quit chan bool,
-) *EventHandler {
-	eh := NewEventHandler()
-	upEventHandler := KeyDownEventHandler(upEvent,
-		func() {
-			UpdatePaddle(universeBus, errChan, name, UP)
-		})
-	downEventHandler := KeyDownEventHandler(downEvent,
-		func() {
-			UpdatePaddle(universeBus, errChan, name, DOWN)
-		})
-	go EventSpreader(eh.EventChan, upEventHandler, downEventHandler)
-	go func() {
-		<-eh.Quit
-		wg := new(sync.WaitGroup)
-		wg.Add(2)
-		for _, c := range [](chan bool){upEventHandler.Quit, downEventHandler.Quit} {
-			go func() {
-				c <- true
-				<-c
-				wg.Done()
-			}()
-		}
-		wg.Wait()
-		eh.Quit <- true
-
-	}()
-	return eh
 }
 
 // CleanupFn is a struct keeping a function with on signature

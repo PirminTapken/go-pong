@@ -1,56 +1,72 @@
 package main
 
 import (
+	//	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
-	"sync"
+	"time"
 )
 
-// EventSpreader spreads sdl.Events from a channel to several listening channels
-// It synchronizes so each event needs to be recieved by each channel until it continues
-func EventSpreader(inChan <-chan sdl.Event, outChan ...*EventHandler) {
+type SdlEventStream struct {
+	closing chan chan error
+	events  chan sdl.Event
+}
+
+func (ses *SdlEventStream) Close() error {
+	c := make(chan error)
+	ses.closing <- c
+	return <-c
+}
+
+func (ses *SdlEventStream) loop() {
+	var err error
 	for {
-		wg := new(sync.WaitGroup)
-		wg.Add(len(outChan))
-		e := <-inChan
-		for _, oc := range outChan {
-			go func() {
-				oc.EventChan <- e
-				wg.Done()
-			}()
+		//evt := sdl.PollEvent()
+		select {
+		case errc := <-ses.closing:
+			errc <- err
+			close(ses.events)
+			return
+		case <-time.After(1 * time.Second):
 		}
 	}
 }
 
-// PollSdlEvents recieves sdl events and puts them on a channel
-// which is returned upon calling this function
-// also it returns a quit channel which can be used to quit GetSdlEvents.
-func PollSdlEvents(quit chan bool) (sdlEvent <-chan sdl.Event) {
-	c := make(chan sdl.Event)
-	go func() {
-		for {
-			select {
-			case <-quit:
-				return
-			default:
-				c <- sdl.PollEvent()
-			}
+func (ses *SdlEventStream) GetEvents() <-chan sdl.Event {
+	ses.events = make(chan sdl.Event)
+	ses.closing = make(chan chan error)
+	go ses.loop()
+	return ses.events
+}
+
+// KeyEventSubscriber sfilters key events from an event stream
+type KeyEventSubscriber struct {
+	eventStream <-chan sdl.Event
+	closing     chan chan error
+}
+
+// NewKeyFilter returns an initialized KeyFilter
+func NewKeyEventSubscriber(eventStream <-chan sdl.Event) *KeyEventSubscriber {
+	kes := &KeyEventSubscriber{eventStream, make(chan chan error)}
+	go kes.loop()
+	return kes
+}
+
+func (kes *KeyEventSubscriber) loop() {
+	var err error
+	for {
+		select {
+		case errc := <-kes.closing:
+			errc <- err
+			return
+		case <-kes.eventStream:
+			// distribute
 		}
-	}()
-	return c
-}
-
-// EventHandler should not be created directly but using it's functions
-// As it contains only channels it's safe though
-type EventHandler struct {
-	Quit      chan bool
-	EventChan chan sdl.Event
-}
-
-// Returns an initialized event handler
-func NewEventHandler() *EventHandler {
-	return &EventHandler{
-		EventChan: make(chan sdl.Event),
 	}
+}
+
+func (kes *KeyEventSubscriber) KeyEvents(sdl.Keycode) <-chan sdl.Event {
+	// FIXME
+	return kes.eventStream
 }
 
 // KeyDownEventHandler tackles KeyDown Events and executes action on correct key
@@ -74,21 +90,4 @@ func KeyDownEventHandler(key sdl.Keycode, action func(), quit chan bool) chan sd
 		}
 	}()
 	return eventChan
-}
-
-// LoopEvents Takes care of the event handling
-// returns a channel that emits a signal when a quit
-// event is received
-func LoopEvents(errChan chan error, quit chan bool) chan bool {
-
-	quitPollingEvents := make(chan bool)
-	sdlEvents := PollSdlEvents(quitPollingEvents)
-
-	quitEvent := make(chan bool)
-	keyQChan := KeyDownEventHandler(sdl.K_q,
-		func() {
-			quitEvent <- true
-		},
-		quit)
-	return quitEvent
 }

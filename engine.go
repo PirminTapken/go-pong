@@ -52,6 +52,7 @@ func (e *Engine) Render() (err error) {
 	if err != nil {
 		return err
 	}
+	// TODO what's on with the rest?
 	e.Renderer.Present()
 	return nil
 }
@@ -64,19 +65,8 @@ func (e *Engine) Run() (err error) {
 		fps = 60
 	}
 	errChan := make(chan error)
-	quitEventLoop := make(chan bool)
-	quit := LoopEvents(errChan)
 	for {
 		select {
-		case <-quit:
-			quitEventLoop <- true
-			<-quitEventLoop // wait for complete shutdown
-			select {
-			case e := <-errChan:
-				return e
-			default:
-				return nil
-			}
 		case e := <-errChan:
 			return e
 		case <-time.After(time.Second / time.Duration(fps)):
