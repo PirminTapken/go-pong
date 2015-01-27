@@ -65,10 +65,16 @@ func (e *Engine) Run() (err error) {
 		fps = 60
 	}
 	errChan := make(chan error)
+	evtSub := NewEventSubscriber()
+	defer evtSub.Close()
+	q_events := evtSub.Subscribe(sdl.K_q)
 	for {
 		select {
 		case e := <-errChan:
 			return e
+		case <-q_events:
+			return
+			// shutdown everything
 		case <-time.After(time.Second / time.Duration(fps)):
 			if err = e.Render(); err != nil {
 				return err
