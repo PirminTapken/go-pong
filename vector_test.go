@@ -10,7 +10,7 @@ func TestAdd(t *testing.T) {
 	b := &Vector2d{5, 5}
 	c := a.Add(b)
 	if c[0] != 8 && c[1] != 8 {
-		t.Errorf("%v isn't [8, 8]")
+		t.Errorf("%v isn't [8, 8]", c)
 	}
 }
 
