@@ -8,11 +8,24 @@ import (
 	"time"
 )
 
+type registerMessage struct {
+	Response    chan int
+	InitialDest *sdl.Rect
+}
+
+type updateMessage struct {
+	Response chan bool
+	SpriteId int
+	Rect     *sdl.Rect
+}
+
 // Engine is our little nice graphics engine
 type Engine struct {
-	Renderer      *sdl.Renderer
-	Background    *sdl.Texture
-	ObjectTexture *sdl.Texture
+	Renderer       *sdl.Renderer
+	Background     *sdl.Texture
+	ObjectTexture  *sdl.Texture
+	RegisterSprite chan registerMessage
+	UpdateSprite   chan updateMessage
 }
 
 // CreateEngine creates the engine.
@@ -46,19 +59,25 @@ func CreateEngine(renderer *sdl.Renderer) (*Engine, error) {
 	return engine, nil
 }
 
+type Sprite struct {
+	Dest *sdl.Rect
+}
+
 // Render the world
-func (e *Engine) Render() (err error) {
-	e.Renderer.Copy(e.Background, nil, nil)
+func (e *Engine) Render(world []Sprite) (err error) {
+	err = e.Renderer.Copy(e.Background, nil, nil)
 	if err != nil {
 		return err
 	}
-	// TODO what's on with the rest?
+	for _, item := range world {
+		e.Renderer.Copy(item.Tex, nil, item.Dest)
+	}
 	e.Renderer.Present()
 	return nil
 }
 
-// Run the game
-// it dirigates all the stuff that needs to be done
+// Run is the loop of the engine
+// it calls the render func
 func (e *Engine) Run() (err error) {
 	fps, err := strconv.Atoi(os.Getenv("FPS"))
 	if err != nil {
@@ -68,6 +87,9 @@ func (e *Engine) Run() (err error) {
 	evtSub := NewEventSubscriber()
 	defer evtSub.Close()
 	q_events := evtSub.Subscribe(sdl.K_q)
+
+	var world []Sprite
+
 	for {
 		select {
 		case e := <-errChan:
