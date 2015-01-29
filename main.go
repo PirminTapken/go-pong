@@ -163,64 +163,15 @@ func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.D
 	ball.Y = newPos[1]
 }
 
-// CleanupFn is a struct keeping a function with on signature
-// and it's name. It's purpose is debugging purposes only
-type CleanupFn struct {
-	Fn   func()
-	Name string
-}
-
-// StartSdl creates window and renderer and returns a
-// cleanup slice that contains functions that should
-// be called upon exit to clean up all sdl related stuff
-func StartSdl() (
-	window *sdl.Window, renderer *sdl.Renderer,
-	cleanup []CleanupFn, err error,
-) {
-	var sdlErr error
-	cleanup = make([]CleanupFn, 0, 3)
-	if sdl.Init(sdl.INIT_EVERYTHING) != 0 {
-		err = fmt.Errorf("sdl.Init failed: %v", sdl.GetError())
-		return nil, nil, cleanup, err
-	}
-	cleanup = append(cleanup, CleanupFn{sdl.Quit, "sdl.Quit"})
-	window, sdlErr = sdl.CreateWindow(
-		NAME,
+func main() {
+	engine, err := CreateEngine("Pong",
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
 		SCREEN_WIDTH,
-		SCREEN_HEIGHT,
-		0,
-	)
-	if sdlErr != nil {
-		err = fmt.Errorf("creating sdl.Window failed: %v", err)
-		return nil, nil, cleanup, err
-	}
-	cleanup = append(cleanup, CleanupFn{window.Destroy, "window.Destroy"})
-	renderer, sdlErr = sdl.CreateRenderer(
-		window,
-		-1,
-		sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC,
-	)
-	if sdlErr != nil {
-		err = fmt.Errorf("Creating sdl.Renderer failed: %v", err)
-		return nil, nil, cleanup, err
-	}
-	cleanup = append(cleanup, CleanupFn{renderer.Destroy, "renderer.Destroy"})
-	return window, renderer, cleanup, nil
-}
-
-func main() {
-	_, renderer, deferredFns, err := StartSdl()
-	for i, fn := range deferredFns {
-		defer func(i int, fn CleanupFn) {
-			fn.Fn()
-		}(i, fn)
-	}
+		SCREEN_HEIGHT)
 	if err != nil {
 		log.Fatal("Initialization of sdl failed: ", err)
 	}
-	engine, err := CreateEngine(renderer)
 	if err != nil {
 		log.Fatal("creating engine failed: ", err)
 	}
