@@ -7,18 +7,15 @@ import (
 // Thread is a single OS thread
 type Thread struct {
 	exec   chan func() interface{}
-	result <-chan interface{}
+	result chan interface{}
 	quit   chan chan error
 }
 
 // Thread returns the handle to a new OS thread
 func NewThread() *Thread {
-	t := &Thread{}
-	t.exec = make(chan func() interface{})
-	// have result local to be able to send
-	r := make(chan interface{})
-	t.result = r
-	t.quit = make(chan chan error)
+	t := &Thread{exec: make(chan func() interface{}),
+		result: make(chan interface{}),
+		quit:   make(chan chan error)}
 	go func() {
 		runtime.LockOSThread()
 		for {
@@ -28,7 +25,8 @@ func NewThread() *Thread {
 				q <- nil
 				return
 			case f := <-t.exec:
-				r <- f()
+				//r <- f()
+				t.result <- f()
 			}
 		}
 	}()
