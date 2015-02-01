@@ -8,7 +8,7 @@ import (
 type Thread struct {
 	exec   chan func() interface{}
 	result <-chan interface{}
-	Quit   chan bool
+	quit   chan chan error
 }
 
 // Thread returns the handle to a new OS thread
@@ -18,12 +18,14 @@ func NewThread() *Thread {
 	// have result local to be able to send
 	r := make(chan interface{})
 	t.result = r
-	t.Quit = make(chan bool)
+	t.quit = make(chan chan error)
 	go func() {
 		runtime.LockOSThread()
 		for {
 			select {
-			case <-t.Quit:
+			case q := <-t.quit:
+				runtime.UnlockOSThread()
+				q <- nil
 				return
 			case f := <-t.exec:
 				r <- f()
@@ -37,4 +39,10 @@ func NewThread() *Thread {
 func (t *Thread) Exec(f func() interface{}) interface{} {
 	t.exec <- f
 	return <-t.result
+}
+
+func (t *Thread) Close() error {
+	r := make(chan error)
+	t.quit <- r
+	return <-r
 }
