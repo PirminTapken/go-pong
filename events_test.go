@@ -7,8 +7,14 @@ import (
 
 // TestCloseEventStream tests if closing our event stream works
 func TestCloseEventStream(t *testing.T) {
-	es := &SdlEventStream{}
+	es := NewSdlEventStream(NewThread())
+	if es == nil {
+		t.Error("SdlEventStream is nil")
+	}
 	events := es.Receive()
+	if events == nil {
+		t.Error("events channel is nil")
+	}
 	t.Log("Opened channel, calling close in background")
 	err := es.Close()
 	if err != nil {
@@ -20,7 +26,7 @@ func TestCloseEventStream(t *testing.T) {
 }
 
 func TestCloseEventSubscriber(t *testing.T) {
-	es := NewEventSubscriber()
+	es := NewEventSubscriber(NewSdlEventStream(NewThread()))
 	if err := es.Close(); err != nil {
 		t.Errorf("closing returned error: %v", err)
 	}
@@ -28,7 +34,8 @@ func TestCloseEventSubscriber(t *testing.T) {
 }
 
 func TestReceiveSpecificKeyEvent(t *testing.T) {
-	es := NewEventSubscriber()
+	sdlThread := NewThread()
+	es := NewEventSubscriber(NewSdlEventStream(sdlThread))
 	evtChan := es.Subscribe(sdl.K_UP)
 	fakeEvent := &sdl.KeyDownEvent{
 		Keysym: sdl.Keysym{
@@ -39,7 +46,10 @@ func TestReceiveSpecificKeyEvent(t *testing.T) {
 		Type:  sdl.KEYDOWN,
 		State: sdl.PRESSED,
 	}
-	sdl.PushEvent(fakeEvent)
+	sdlThread.Exec(func() interface{} {
+		sdl.PushEvent(fakeEvent)
+		return nil
+	})
 	evt := <-evtChan
 	switch e := evt.(type) {
 	case *sdl.KeyDownEvent:

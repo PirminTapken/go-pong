@@ -8,6 +8,19 @@ import (
 type SdlEventStream struct {
 	closing chan chan error
 	events  chan sdl.Event
+	thread  *Thread
+}
+
+// NewSdlEventStream takes the sdl thread and returns the stream
+// struct
+func NewSdlEventStream(thread *Thread) *SdlEventStream {
+	ses := &SdlEventStream{
+		closing: make(chan chan error),
+		events:  make(chan sdl.Event),
+		thread:  thread,
+	}
+	go ses.loop()
+	return ses
 }
 
 func (ses *SdlEventStream) Close() error {
@@ -16,10 +29,18 @@ func (ses *SdlEventStream) Close() error {
 	return <-c
 }
 
+// pollEvent polls an SDL event in the SDL thread
+func (ses *SdlEventStream) pollEvent() sdl.Event {
+	es := ses.thread.Exec(func() interface{} {
+		return struct{ e sdl.Event }{sdl.PollEvent()}
+	}).(struct{ e sdl.Event })
+	return es.e
+}
+
 func (ses *SdlEventStream) loop() {
 	var err error
 	for {
-		evt := sdl.PollEvent()
+		evt := ses.pollEvent()
 		select {
 		case errc := <-ses.closing:
 			errc <- err
@@ -37,13 +58,6 @@ func (ses *SdlEventStream) loop() {
 // Receive returns a read only channel where sdl Events will
 // be submitted
 func (ses *SdlEventStream) Receive() <-chan sdl.Event {
-	// This makes it possible to call this more than once
-	// but don't have this starting two loops or more
-	if ses.events == nil {
-		ses.events = make(chan sdl.Event)
-		ses.closing = make(chan chan error)
-		go ses.loop()
-	}
 	return ses.events
 }
 
@@ -62,9 +76,9 @@ type EventSubscriber struct {
 }
 
 // NewKeyFilter returns an initialized KeyFilter
-func NewEventSubscriber() *EventSubscriber {
+func NewEventSubscriber(stream *SdlEventStream) *EventSubscriber {
 	es := &EventSubscriber{}
-	es.eventStream = &SdlEventStream{}
+	es.eventStream = stream
 	es.eventChan = es.eventStream.Receive()
 	es.recepients = make(map[sdl.Keycode][]chan sdl.Event)
 	es.closing = make(chan chan error)
