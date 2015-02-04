@@ -76,9 +76,9 @@ type EventSubscriber struct {
 }
 
 // NewKeyFilter returns an initialized KeyFilter
-func NewEventSubscriber() *EventSubscriber {
+func NewEventSubscriber(stream *SdlEventStream) *EventSubscriber {
 	es := &EventSubscriber{}
-	es.eventStream = &SdlEventStream{}
+	es.eventStream = stream
 	es.eventChan = es.eventStream.Receive()
 	es.recepients = make(map[sdl.Keycode][]chan sdl.Event)
 	es.closing = make(chan chan error)

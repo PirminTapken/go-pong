@@ -37,7 +37,7 @@ func TestCloseEventStream(t *testing.T) {
 }
 
 func TestCloseEventSubscriber(t *testing.T) {
-	es := NewEventSubscriber()
+	es := NewEventSubscriber(NewSdlEventStream(NewThread()))
 	errc := make(chan error)
 	go func() {
 		errc <- es.Close()
@@ -55,7 +55,8 @@ func TestCloseEventSubscriber(t *testing.T) {
 func TestReceiveSpecificKeyEvent(t *testing.T) {
 	done := make(chan bool)
 	go func() {
-		es := NewEventSubscriber()
+		sdlThread := NewThread()
+		es := NewEventSubscriber(NewSdlEventStream(sdlThread))
 		t.Log("Subscribe")
 		evtChan := es.Subscribe(sdl.K_UP)
 		t.Log("Create Fake Event")
@@ -73,7 +74,10 @@ func TestReceiveSpecificKeyEvent(t *testing.T) {
 			Repeat:    0,
 		}
 		t.Log("Push fake Event")
-		sdl.PushEvent(fakeEvent)
+		sdlThread.Exec(func() interface{} {
+			sdl.PushEvent(fakeEvent)
+			return nil
+		})
 		select {
 		case evt := <-evtChan:
 			switch e := evt.(type) {
