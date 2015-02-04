@@ -22,15 +22,6 @@ type Engine struct {
 	Thread *Thread
 }
 
-// Close closes the engine
-// error is always nil and just there to match
-// io.Closer
-func (e *Engine) Close() error {
-	e.cleanup()
-	err := e.Thread.Close()
-	return err
-}
-
 // NewEngine creates the engine.
 // This basically creates the background texture and stores it away
 func NewEngine(windowName string, X, Y, W, H int) (e *Engine, err error) {
@@ -42,6 +33,15 @@ func NewEngine(windowName string, X, Y, W, H int) (e *Engine, err error) {
 	err = e.CreateWindowAndRenderer(W, H, 0)
 	e.SetTitle(windowName)
 	return e, err
+}
+
+// Close closes the engine
+// error is always nil and just there to match
+// io.Closer
+func (e *Engine) Close() error {
+	e.cleanup()
+	err := e.Thread.Close()
+	return err
 }
 
 func (e *Engine) Title() string {
