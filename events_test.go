@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"testing"
-	"time"
 )
 
 // TestCloseEventStream tests if closing our event stream works
@@ -17,19 +16,9 @@ func TestCloseEventStream(t *testing.T) {
 		t.Error("events channel is nil")
 	}
 	t.Log("Opened channel, calling close in background")
-	errc := make(chan error)
-	// do it in background to give it time
-	go func() {
-		errc <- es.Close()
-	}()
-	select {
-	case err := <-errc:
-		if err != nil {
-			t.Errorf("An error occured: %v", err)
-		}
-		// we have finished in time
-	case <-time.After(3 * time.Second):
-		t.Fatal("timeout!")
+	err := es.Close()
+	if err != nil {
+		t.Errorf("An error occured: %v", err)
 	}
 	if evt := <-events; evt != nil {
 		t.Errorf("events returned something other than it's zero value nil: %v", evt)
@@ -38,62 +27,36 @@ func TestCloseEventStream(t *testing.T) {
 
 func TestCloseEventSubscriber(t *testing.T) {
 	es := NewEventSubscriber(NewSdlEventStream(NewThread()))
-	errc := make(chan error)
-	go func() {
-		errc <- es.Close()
-	}()
-	select {
-	case err := <-errc:
-		if err != nil {
-			t.Errorf("closing returned error: %v", err)
-		}
-	case <-time.After(3 * time.Second):
-		t.Errorf("timeout!")
+	if err := es.Close(); err != nil {
+		t.Errorf("closing returned error: %v", err)
 	}
+
 }
 
 func TestReceiveSpecificKeyEvent(t *testing.T) {
-	done := make(chan bool)
-	go func() {
-		sdlThread := NewThread()
-		es := NewEventSubscriber(NewSdlEventStream(sdlThread))
-		t.Log("Subscribe")
-		evtChan := es.Subscribe(sdl.K_UP)
-		t.Log("Create Fake Event")
-		fakeEvent := &sdl.KeyDownEvent{
-			Keysym: sdl.Keysym{
-				Sym:      sdl.K_UP,
-				Scancode: sdl.SCANCODE_UP,
-				Mod:      sdl.KMOD_NONE,
-				Unicode:  0,
-			},
-			Type:      sdl.KEYDOWN,
-			Timestamp: 0,
-			WindowID:  0,
-			State:     sdl.PRESSED,
-			Repeat:    0,
+	sdlThread := NewThread()
+	es := NewEventSubscriber(NewSdlEventStream(sdlThread))
+	evtChan := es.Subscribe(sdl.K_UP)
+	fakeEvent := &sdl.KeyDownEvent{
+		Keysym: sdl.Keysym{
+			Sym:      sdl.K_UP,
+			Scancode: sdl.SCANCODE_UP,
+			Mod:      sdl.KMOD_NONE,
+		},
+		Type:  sdl.KEYDOWN,
+		State: sdl.PRESSED,
+	}
+	sdlThread.Exec(func() interface{} {
+		sdl.PushEvent(fakeEvent)
+		return nil
+	})
+	evt := <-evtChan
+	switch e := evt.(type) {
+	case *sdl.KeyDownEvent:
+		if e.Keysym.Sym != sdl.K_UP {
+			t.Errorf("Key is %v instead of %v", e.Keysym.Sym, sdl.K_UP)
 		}
-		t.Log("Push fake Event")
-		sdlThread.Exec(func() interface{} {
-			sdl.PushEvent(fakeEvent)
-			return nil
-		})
-		select {
-		case evt := <-evtChan:
-			switch e := evt.(type) {
-			case *sdl.KeyDownEvent:
-				if e.Keysym.Sym != sdl.K_UP {
-					t.Errorf("Key is %v instead of %v", e.Keysym.Sym, sdl.K_UP)
-				}
-			}
-		case <-time.After(5 * time.Second):
-			t.Error("timeout after 5 seconds")
-		}
-		done <- true
-	}()
-	select {
-	case <-done:
-	case <-time.After(10 * time.Second):
-		t.Error("Timeout Nothing went well")
+	default:
+		t.Errorf("Event was %v instead of KeyDownEvent", evt)
 	}
 }

@@ -10,15 +10,11 @@ import (
 )
 
 const (
-	BACKGROUND_COLOR = uint32(0x000000)
-	PADDLE_LENGTH    = 0.2
-	PADDLE_WIDTH     = 0.05
-	PADDLE_COLOR     = uint32(0xffffff)
-	SCREEN_WIDTH     = 640
-	SCREEN_HEIGHT    = 480
-	NAME             = "Pong"
-	PADDING          = 10
-	VERSION          = "0.1"
+	SCREEN_WIDTH  = 640
+	SCREEN_HEIGHT = 480
+	NAME          = "Pong"
+	PADDING       = 10
+	VERSION       = "0.1"
 )
 
 type PongError struct {
@@ -164,7 +160,7 @@ func UpdateBall(universeBus chan map[string]Object, errChan chan error, d time.D
 }
 
 func main() {
-	engine, err := CreateEngine("Pong",
+	_, err := NewEngine("Pong",
 		sdl.WINDOWPOS_UNDEFINED,
 		sdl.WINDOWPOS_UNDEFINED,
 		SCREEN_WIDTH,
@@ -172,12 +168,4 @@ func main() {
 	if err != nil {
 		log.Fatal("Initialization of sdl failed: ", err)
 	}
-	if err != nil {
-		log.Fatal("creating engine failed: ", err)
-	}
-	err = engine.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Print("Good Bye!")
 }
