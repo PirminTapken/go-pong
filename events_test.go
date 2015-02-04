@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"testing"
-	"time"
 )
 
 // TestCloseEventStream tests if closing our event stream works
@@ -41,16 +40,13 @@ func TestReceiveSpecificKeyEvent(t *testing.T) {
 		State: sdl.PRESSED,
 	}
 	sdl.PushEvent(fakeEvent)
-	select {
-	case evt := <-evtChan:
-		switch e := evt.(type) {
-		case *sdl.KeyDownEvent:
-			if e.Keysym.Sym != sdl.K_UP {
-				t.Errorf("Key is %v instead of %v", e.Keysym.Sym, sdl.K_UP)
-			}
+	evt := <-evtChan
+	switch e := evt.(type) {
+	case *sdl.KeyDownEvent:
+		if e.Keysym.Sym != sdl.K_UP {
+			t.Errorf("Key is %v instead of %v", e.Keysym.Sym, sdl.K_UP)
 		}
-	// is this necessary?
-	case <-time.After(1 * time.Millisecond):
-		t.Error("timeout after 1 millisecond")
+	default:
+		t.Errorf("Event was %v instead of KeyDownEvent", evt)
 	}
 }
