@@ -8,8 +8,14 @@ import (
 
 // TestCloseEventStream tests if closing our event stream works
 func TestCloseEventStream(t *testing.T) {
-	es := &SdlEventStream{}
+	es := NewSdlEventStream(NewThread())
+	if es == nil {
+		t.Error("SdlEventStream is nil")
+	}
 	events := es.Receive()
+	if events == nil {
+		t.Error("events channel is nil")
+	}
 	t.Log("Opened channel, calling close in background")
 	errc := make(chan error)
 	// do it in background to give it time
