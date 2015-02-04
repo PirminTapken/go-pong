@@ -36,13 +36,9 @@ func TestReceiveSpecificKeyEvent(t *testing.T) {
 			Sym:      sdl.K_UP,
 			Scancode: sdl.SCANCODE_UP,
 			Mod:      sdl.KMOD_NONE,
-			Unicode:  0,
 		},
-		Type:      sdl.KEYDOWN,
-		Timestamp: 0,
-		WindowID:  0,
-		State:     sdl.PRESSED,
-		Repeat:    0,
+		Type:  sdl.KEYDOWN,
+		State: sdl.PRESSED,
 	}
 	sdl.PushEvent(fakeEvent)
 	select {
