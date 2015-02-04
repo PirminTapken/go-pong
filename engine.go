@@ -1,84 +1,103 @@
 package main
 
 import (
-	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
-	"os"
-	"strconv"
-	"time"
+)
+
+const (
+	BACKGROUND_COLOR = uint32(0x000000)
+	PADDLE_LENGTH    = 0.2
+	PADDLE_WIDTH     = 0.05
+	PADDLE_COLOR     = uint32(0xffffff)
 )
 
 // Engine is our little nice graphics engine
 type Engine struct {
-	Renderer      *sdl.Renderer
-	Background    *sdl.Texture
-	ObjectTexture *sdl.Texture
+	cleanupFns []func()
+	window     *sdl.Window
+	renderer   *sdl.Renderer
+	// Thread is public so it can be used by other
+	// goroutines that need to do stuff in the sdl
+	// thread
+	Thread *Thread
 }
 
-// CreateEngine creates the engine.
+// Close closes the engine
+// error is always nil and just there to match
+// io.Closer
+func (e *Engine) Close() error {
+	e.cleanup()
+	err := e.Thread.Close()
+	return err
+}
+
+// NewEngine creates the engine.
 // This basically creates the background texture and stores it away
-func CreateEngine(renderer *sdl.Renderer) (*Engine, error) {
-	bgSurface := sdl.CreateRGBSurface(
-		0, SCREEN_WIDTH, SCREEN_HEIGHT, 32,
-		0, 0, 0, 0,
-	)
-	if bgSurface == nil {
-		return nil, fmt.Errorf("surface creation failed: %v", sdl.GetError())
-	}
-	if bgSurface.FillRect(nil, BACKGROUND_COLOR) != 0 {
-		return nil, fmt.Errorf("filling background failed: %v", sdl.GetError())
-	}
-	backgroundTexture, err := renderer.CreateTextureFromSurface(bgSurface)
+func NewEngine(windowName string, X, Y, W, H int) (e *Engine, err error) {
+	e = &Engine{Thread: NewThread(), cleanupFns: make([]func(), 0)}
+	err = e.sdlInit()
 	if err != nil {
-		return nil, fmt.Errorf("Creating BackgroundTexture failed:", err)
+		return e, err
 	}
-	objectSurface := sdl.CreateRGBSurface(0, 1, 1, 32, 0, 0, 0, 0) // just a single color
-	objectSurface.FillRect(nil, PADDLE_COLOR)
-	objectTexture, err := renderer.CreateTextureFromSurface(objectSurface)
-	if err != nil {
-		return nil, fmt.Errorf("Creating ObjectTexture failed:", err)
-	}
-	engine := &Engine{
-		Renderer:      renderer,
-		Background:    backgroundTexture,
-		ObjectTexture: objectTexture,
-	}
-	return engine, nil
+	err = e.CreateWindowAndRenderer(W, H, 0)
+	e.SetTitle(windowName)
+	return e, err
 }
 
-// Render the world
-func (e *Engine) Render() (err error) {
-	e.Renderer.Copy(e.Background, nil, nil)
-	if err != nil {
-		return err
-	}
-	// TODO what's on with the rest?
-	e.Renderer.Present()
-	return nil
+func (e *Engine) Title() string {
+	return e.Thread.Exec(func() interface{} {
+		return e.window.GetTitle()
+	}).(string)
 }
 
-// Run the game
-// it dirigates all the stuff that needs to be done
-func (e *Engine) Run() (err error) {
-	fps, err := strconv.Atoi(os.Getenv("FPS"))
-	if err != nil {
-		fps = 60
-	}
-	errChan := make(chan error)
-	evtSub := NewEventSubscriber()
-	defer evtSub.Close()
-	q_events := evtSub.Subscribe(sdl.K_q)
-	for {
-		select {
-		case e := <-errChan:
-			return e
-		case <-q_events:
-			return
-			// shutdown everything
-		case <-time.After(time.Second / time.Duration(fps)):
-			if err = e.Render(); err != nil {
-				return err
-			}
+func (e *Engine) SetTitle(s string) {
+	_ = e.Thread.Exec(func() interface{} {
+		e.window.SetTitle(s)
+		return nil
+	})
+}
+
+// init calls sdl init in sdl thread
+func (e *Engine) sdlInit() error {
+	r := e.Thread.Exec(func() interface{} {
+		// This is neccessary otherwise nil error can't be converted to
+		// interface and back somehow...
+		e := struct{ err error }{}
+		if sdl.Init(sdl.INIT_EVERYTHING) != 0 {
+			e.err = sdl.GetError()
 		}
+		return e
+	}).(struct{ err error })
+	e.cleanupFns = append(e.cleanupFns, sdl.Quit)
+	return r.err
+}
+
+// cleanup cleans everything up
+func (e *Engine) cleanup() {
+	for i := len(e.cleanupFns); i > 0; i-- {
+		e.Thread.Exec(func() interface{} {
+			e.cleanupFns[i-1]()
+			return nil
+		})
 	}
+}
+
+func (e *Engine) CreateWindowAndRenderer(w, h int, flags uint32) error {
+	type resp struct {
+		w *sdl.Window
+		r *sdl.Renderer
+		e error
+	}
+	r := e.Thread.Exec(func() interface{} {
+		w, r, e := sdl.CreateWindowAndRenderer(w, h, flags)
+		return resp{w: w, r: r, e: e}
+	}).(resp)
+	if r.e != nil {
+		return r.e
+	}
+	e.window = r.w
+	e.renderer = r.r
+	e.cleanupFns = append(e.cleanupFns, e.window.Destroy)
+	e.cleanupFns = append(e.cleanupFns, e.renderer.Destroy)
+	return nil
 }
