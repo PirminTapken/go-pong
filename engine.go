@@ -11,8 +11,8 @@ const (
 	PADDLE_COLOR     = uint32(0xffffff)
 )
 
-// Engine is our little nice graphics engine
-type Engine struct {
+// SDLEngine is an 2d engine using SDL
+type SDLEngine struct {
 	cleanupFns []func()
 	window     *sdl.Window
 	renderer   *sdl.Renderer
@@ -22,10 +22,11 @@ type Engine struct {
 	Thread *Thread
 }
 
-// NewEngine creates the engine.
+// NewSDLEngine creates the engine.
 // This basically creates the background texture and stores it away
-func NewEngine(windowName string, X, Y, W, H int) (e *Engine, err error) {
-	e = &Engine{Thread: NewThread(), cleanupFns: make([]func(), 0)}
+func NewSDLEngine(windowName string, X, Y, W, H int) (e *SDLEngine, err error) {
+	e = &SDLEngine{Thread: NewThread(),
+		cleanupFns: make([]func(), 0)}
 	err = e.sdlInit()
 	if err != nil {
 		return e, err
@@ -38,19 +39,19 @@ func NewEngine(windowName string, X, Y, W, H int) (e *Engine, err error) {
 // Close closes the engine
 // error is always nil and just there to match
 // io.Closer
-func (e *Engine) Close() error {
+func (e *SDLEngine) Close() error {
 	e.cleanup()
 	err := e.Thread.Close()
 	return err
 }
 
-func (e *Engine) Title() string {
+func (e *SDLEngine) Title() string {
 	return e.Thread.Exec(func() interface{} {
 		return e.window.GetTitle()
 	}).(string)
 }
 
-func (e *Engine) SetTitle(s string) {
+func (e *SDLEngine) SetTitle(s string) {
 	_ = e.Thread.Exec(func() interface{} {
 		e.window.SetTitle(s)
 		return nil
@@ -58,7 +59,7 @@ func (e *Engine) SetTitle(s string) {
 }
 
 // init calls sdl init in sdl thread
-func (e *Engine) sdlInit() error {
+func (e *SDLEngine) sdlInit() error {
 	r := e.Thread.Exec(func() interface{} {
 		// This is neccessary otherwise nil error can't be converted to
 		// interface and back somehow...
@@ -73,7 +74,7 @@ func (e *Engine) sdlInit() error {
 }
 
 // cleanup cleans everything up
-func (e *Engine) cleanup() {
+func (e *SDLEngine) cleanup() {
 	for i := len(e.cleanupFns); i > 0; i-- {
 		e.Thread.Exec(func() interface{} {
 			e.cleanupFns[i-1]()
@@ -82,7 +83,7 @@ func (e *Engine) cleanup() {
 	}
 }
 
-func (e *Engine) CreateWindowAndRenderer(w, h int, flags uint32) error {
+func (e *SDLEngine) CreateWindowAndRenderer(w, h int, flags uint32) error {
 	type resp struct {
 		w *sdl.Window
 		r *sdl.Renderer
