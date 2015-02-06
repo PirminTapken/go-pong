@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/veandco/go-sdl2/sdl"
+	"golang.org/x/mobile/sprite"
+	"sync"
 )
 
 const (
@@ -10,6 +12,71 @@ const (
 	PADDLE_WIDTH     = 0.05
 	PADDLE_COLOR     = uint32(0xffffff)
 )
+
+// A Scene Graph, also partially stolen from golang.org/x/mobile/sprite
+// but safe for concurrency
+type Node struct {
+	Arranger                                                sprite.Arranger
+	SubTex                                                  sprite.SubTex
+	LastChild, FirstChild, NextSibling, PrevSibling, Parent *Node
+	M                                                       sync.RWMutex
+}
+
+// AppendChild appends a node to the graph
+func (n *Node) AppendChild(c *Node) {
+	n.M.Lock()
+	defer n.M.Unlock()
+	c.M.Lock()
+	defer c.M.Unlock()
+	if c.Parent != nil || c.PrevSibling != nil || c.NextSibling != nil {
+		panic("Node: Child already somewhere in tree")
+	}
+
+	// taken from golang.org/x/mobile/sprite
+	last := n.LastChild
+	if last != nil {
+		last.M.Lock()
+		last.NextSibling = c
+		last.M.Unlock()
+	} else {
+		n.FirstChild = c
+	}
+	c.PrevSibling = last
+	c.Parent = n
+	n.LastChild = c
+}
+
+// RemoveChild removes child from tree
+func (n *Node) RemoveChild(c *Node) {
+	n.M.Lock()
+	defer n.M.Unlock()
+	c.M.Lock()
+	defer c.M.Unlock()
+
+	prevSibling := c.PrevSibling
+	nextSibling := c.NextSibling
+	if prevSibling != nil {
+		prevSibling.M.Lock()
+		prevSibling.NextSibling = nextSibling
+		prevSibling.M.Unlock()
+	}
+	if nextSibling != nil {
+		nextSibling.M.Lock()
+		nextSibling.PrevSibling = prevSibling
+		nextSibling.M.Unlock()
+	}
+
+	if n.FirstChild == c {
+		n.FirstChild = c.NextSibling
+	}
+	if n.LastChild == c {
+		n.LastChild = c.PrevSibling
+	}
+
+	c.Parent = nil
+	c.NextSibling = nil
+	c.PrevSibling = nil
+}
 
 // SDLEngine is an 2d engine using SDL
 type SDLEngine struct {
